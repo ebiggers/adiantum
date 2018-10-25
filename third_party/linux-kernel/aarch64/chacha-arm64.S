@@ -15,14 +15,18 @@
 .Lone:
 .long	1,0,0,0
 
+/*
+ * void chacha_arm(u8 *out, const u8 *in, size_t len, const u32 key[8],
+ *		   const u32 iv[4], int nrounds);
+ */
 .align	5
-ENTRY(chacha20_arm)
+ENTRY(chacha_arm)
 	cbz	x2,.Labort
 
 	stp	x29,x30,[sp,#-96]!
 	add	x29,sp,#0
 
-	adr	x5,.Lsigma
+	adr	x6,.Lsigma
 	stp	x19,x20,[sp,#16]
 	stp	x21,x22,[sp,#32]
 	stp	x23,x24,[sp,#48]
@@ -30,10 +34,11 @@ ENTRY(chacha20_arm)
 	stp	x27,x28,[sp,#80]
 	sub	sp,sp,#64
 
-	ldp	x22,x23,[x5]		// load sigma
+	ldp	x22,x23,[x6]		// load sigma
 	ldp	x24,x25,[x3]		// load key
 	ldp	x26,x27,[x3,#16]
 	ldp	x28,x30,[x4]		// load counter
+	mov	w3, w5			// nrounds
 #ifdef	__AARCH64EB__
 	ror	x24,x24,#32
 	ror	x25,x25,#32
@@ -61,10 +66,10 @@ ENTRY(chacha20_arm)
 	mov	w20,w30
 	lsr	x21,x30,#32
 
-	mov	x4,#10
+	mov	w4,w3			// nrounds
 	subs	x2,x2,#64
 .Loop:
-	sub	x4,x4,#1
+	sub	w4,w4,#2
 	add	w5,w5,w9
 	add	w6,w6,w10
 	add	w7,w7,w11
@@ -161,7 +166,7 @@ ENTRY(chacha20_arm)
 	ror	w11,w11,#25
 	ror	w12,w12,#25
 	ror	w9,w9,#25
-	cbnz	x4,.Loop
+	cbnz	w4,.Loop
 
 	add	w5,w5,w22		// accumulate key block
 	add	x6,x6,x22,lsr#32
@@ -287,17 +292,21 @@ ENTRY(chacha20_arm)
 	ldp	x27,x28,[x29,#80]
 	ldp	x29,x30,[sp],#96
 	ret
-ENDPROC(chacha20_arm)
+ENDPROC(chacha_arm)
 
 #ifdef CONFIG_KERNEL_MODE_NEON
+/*
+ * void chacha_neon(u8 *out, const u8 *in, size_t len, const u32 key[8],
+ *		    const u32 iv[4], int nrounds);
+ */
 .align	5
-ENTRY(chacha20_neon)
+ENTRY(chacha_neon)
 	cbz	x2,.Labort_neon
 
 	stp	x29,x30,[sp,#-96]!
 	add	x29,sp,#0
 
-	adr	x5,.Lsigma
+	adr	x6,.Lsigma
 	stp	x19,x20,[sp,#16]
 	stp	x21,x22,[sp,#32]
 	stp	x23,x24,[sp,#48]
@@ -308,14 +317,15 @@ ENTRY(chacha20_neon)
 
 	sub	sp,sp,#64
 
-	ldp	x22,x23,[x5]		// load sigma
-	ld1	{v24.4s},[x5],#16
+	ldp	x22,x23,[x6]		// load sigma
+	ld1	{v24.4s},[x6],#16
 	ldp	x24,x25,[x3]		// load key
 	ldp	x26,x27,[x3,#16]
 	ld1	{v25.4s,v26.4s},[x3]
 	ldp	x28,x30,[x4]		// load counter
 	ld1	{v27.4s},[x4]
-	ld1	{v31.4s},[x5]
+	ld1	{v31.4s},[x6]
+	mov	w3, w5			// nrounds
 #ifdef	__AARCH64EB__
 	rev64	v24.4s,v24.4s
 	ror	x24,x24,#32
@@ -360,10 +370,10 @@ ENTRY(chacha20_neon)
 	mov	v18.16b,v26.16b
 	lsr	x21,x30,#32
 
-	mov	x4,#10
+	mov	w4,w3			// nrounds
 	subs	x2,x2,#256
 .Loop_neon:
-	sub	x4,x4,#1
+	sub	w4,w4,#2
 	add	v0.4s,v0.4s,v1.4s
 	add	w5,w5,w9
 	add	v4.4s,v4.4s,v5.4s
@@ -568,7 +578,7 @@ ENTRY(chacha20_neon)
 	ext	v1.16b,v1.16b,v1.16b,#12
 	ext	v5.16b,v5.16b,v5.16b,#12
 	ext	v17.16b,v17.16b,v17.16b,#12
-	cbnz	x4,.Loop_neon
+	cbnz	w4,.Loop_neon
 
 	add	w5,w5,w22		// accumulate key block
 	add	v0.4s,v0.4s,v24.4s
@@ -787,14 +797,15 @@ ENTRY(chacha20_neon)
 .L512_or_more_neon:
 	sub	sp,sp,#128+64
 
-	ldp	x22,x23,[x5]		// load sigma
-	ld1	{v24.4s},[x5],#16
+	ldp	x22,x23,[x6]		// load sigma
+	ld1	{v24.4s},[x6],#16
 	ldp	x24,x25,[x3]		// load key
 	ldp	x26,x27,[x3,#16]
 	ld1	{v25.4s,v26.4s},[x3]
 	ldp	x28,x30,[x4]		// load counter
 	ld1	{v27.4s},[x4]
-	ld1	{v31.4s},[x5]
+	ld1	{v31.4s},[x6]
+	mov	w3, w5			// nrounds
 #ifdef	__AARCH64EB__
 	rev64	v24.4s,v24.4s
 	ror	x24,x24,#32
@@ -864,10 +875,10 @@ ENTRY(chacha20_neon)
 	mov	v22.16b,v26.16b
 	str	q29,[sp,#80]
 
-	mov	x4,#5
+	mov	w4,w3
 	subs	x2,x2,#512
 .Loop_upper_neon:
-	sub	x4,x4,#1
+	sub	w4,w4,#4
 	add	v0.4s,v0.4s,v1.4s
 	add	w5,w5,w9
 	add	v4.4s,v4.4s,v5.4s
@@ -1276,7 +1287,7 @@ ENTRY(chacha20_neon)
 	ext	v13.16b,v13.16b,v13.16b,#12
 	ext	v17.16b,v17.16b,v17.16b,#12
 	ext	v21.16b,v21.16b,v21.16b,#12
-	cbnz	x4,.Loop_upper_neon
+	cbnz	w4,.Loop_upper_neon
 
 	add	w5,w5,w22		// accumulate key block
 	add	x6,x6,x22,lsr#32
@@ -1350,9 +1361,9 @@ ENTRY(chacha20_neon)
 	mov	w20,w30
 	lsr	x21,x30,#32
 
-	mov	x4,#5
+	mov	w4,w3
 .Loop_lower_neon:
-	sub	x4,x4,#1
+	sub	w4,w4,#4
 	add	v0.4s,v0.4s,v1.4s
 	add	w5,w5,w9
 	add	v4.4s,v4.4s,v5.4s
@@ -1761,7 +1772,7 @@ ENTRY(chacha20_neon)
 	ext	v13.16b,v13.16b,v13.16b,#12
 	ext	v17.16b,v17.16b,v17.16b,#12
 	ext	v21.16b,v21.16b,v21.16b,#12
-	cbnz	x4,.Loop_lower_neon
+	cbnz	w4,.Loop_lower_neon
 
 	add	w5,w5,w22		// accumulate key block
 	ldp	q24,q25,[sp,#0]
@@ -1938,5 +1949,5 @@ ENTRY(chacha20_neon)
 	ldp	x29,x30,[sp],#96
 .Labort_neon:
 	ret
-ENDPROC(chacha20_neon)
+ENDPROC(chacha_neon)
 #endif
