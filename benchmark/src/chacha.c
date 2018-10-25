@@ -18,7 +18,6 @@ enum {
 	CHACHA_ASM_IMPL_LINUX_NEON,	/* fastest on Cortex-A7 */
 	CHACHA_ASM_IMPL_SCALAR,		/* nearly fastest on Cortex-A7 */
 	CHACHA_ASM_IMPL_OPENSSL_NEON,	/* slow on Cortex-A7, fastest on other ARM CPUs */
-	CHACHA_ASM_IMPL_OPENSSL_SCALAR, /* slower than other scalar impl */
 };
 #if KERNELISH
 #define CHACHA_ASM_IMPL CHACHA_ASM_IMPL_SCALAR
@@ -169,12 +168,8 @@ void chacha_arm(u8 *out, const u8 *in, size_t len, const u32 key[8],
 void hchacha_arm(const u32 state[16], u32 out[8], int nrounds);
 
 /* CHACHA_ASM_IMPL_OPENSSL_NEON */
-void openssl_chacha20_neon(u8 *out, const u8 *in, size_t len, const u32 key[8],
-			   const u32 counter[4]);
-
-/* CHACHA_ASM_IMPL_OPENSSL_SCALAR */
-void openssl_chacha20_arm(u8 *out, const u8 *in, size_t len, const u32 key[8],
-			  const u32 counter[4]);
+void chacha20_neon(u8 *out, const u8 *in, size_t len, const u32 key[8],
+		   const u32 iv[4]);
 
 static void chacha_simd(const struct chacha_ctx *ctx, u8 *dst, const u8 *src,
 			unsigned int bytes, const u8 *iv)
@@ -182,22 +177,11 @@ static void chacha_simd(const struct chacha_ctx *ctx, u8 *dst, const u8 *src,
 	u32 state[16];
 	u8 buf[4 * CHACHA_BLOCK_SIZE] __attribute__((aligned(4)));
 
-	if (CHACHA_ASM_IMPL == CHACHA_ASM_IMPL_OPENSSL_NEON &&
-	    ctx->nrounds == 20) {
-		u32 _iv[4];
-
-		if (!bytes)	/* asm doesn't handle empty input */
-			return;
-
-		memcpy(_iv, iv, 16);
-		openssl_chacha20_neon(dst, src, bytes, ctx->key, _iv);
-		return;
-	} else if (CHACHA_ASM_IMPL == CHACHA_ASM_IMPL_OPENSSL_SCALAR &&
-		   ctx->nrounds == 20) {
+	if (CHACHA_ASM_IMPL == CHACHA_ASM_IMPL_OPENSSL_NEON && ctx->nrounds == 20) {
 		u32 _iv[4];
 
 		memcpy(_iv, iv, 16);
-		openssl_chacha20_arm(dst, src, bytes, ctx->key, _iv);
+		chacha20_neon(dst, src, bytes, ctx->key, _iv);
 		return;
 	} else if (CHACHA_ASM_IMPL == CHACHA_ASM_IMPL_SCALAR) {
 		u32 _iv[4];

@@ -53,8 +53,8 @@ if host_machine.cpu_family() == 'arm'
         'src/arm/xtea-neon-core.S',
         '../third_party/linux-kernel/arm/aes-cipher-core.S',
         '../third_party/linux-kernel/arm/aes-neonbs-core.S',
+        '../third_party/linux-kernel/arm/chacha-arm.S',
         '../third_party/linux-kernel/arm/chacha-neon-core.S',
-        '../third_party/openssl/arm/chacha-armv4.S',
         '../third_party/openssl/arm/poly1305-armv4.S',
     ]
 endif
