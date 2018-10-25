@@ -51,8 +51,8 @@ CPUs are at maximum frequency. This test applies only to ARM-based devices.
 * `./android-tools/setup-build --toolchain-prefix=$ANDROID_TOOLCHAIN/bin/arm-linux-androideabi-`
     * if `adb` is not in the `$PATH` then add the `--adb=/path/to/adb` argument
     * similarly with `--meson`
-* Run the benchmarks: `ninja -C build/android output4096`
-* Look at the output: `less build/android/output4096`
+* Run the benchmarks: `ninja -C build/android-arm output4096`
+* Look at the output: `less build/android-arm/output4096`
 
 ### Alternative implementations for Linux kernel
 
