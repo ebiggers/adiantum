@@ -40,7 +40,6 @@ src = [
 ]
 if host_machine.cpu_family() == 'arm'
     src += [
-        'src/arm/chacha-scalar.S',
         'src/arm/cham-neon-core.S',
         'src/arm/chaskey-lts-neon-core.S',
         'src/arm/insn_timing.S',

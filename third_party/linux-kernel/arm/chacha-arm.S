@@ -394,10 +394,10 @@
 .endm	// _chacha
 
 /*
- * void chacha20_arm(u8 *out, const u8 *in, size_t len, const u32 key[8],
- *		     const u32 iv[4]);
+ * void chacha_arm(u8 *out, const u8 *in, size_t len, const u32 key[8],
+ *		   const u32 iv[4], int nrounds);
  */
-ENTRY(chacha20_arm)
+ENTRY(chacha_arm)
 	cmp		r2, #0			// len == 0?
 	reteq		lr
 
@@ -406,12 +406,13 @@ ENTRY(chacha20_arm)
 	// Push state x0-x15 onto stack.
 	// Also store an extra copy of x10-x11 just before the state.
 
-	ldr		r4, [sp, #48]		// iv
+	__ldrd		r4, r5, sp, 48		// (iv, nrounds)
 	mov		r0, sp
 	sub		sp, #80
 
 	// iv: x12-x15
 	ldm		r4, {X12,X13,X14,X15}
+	  cmp		r5, #12			// nrounds == 12?
 	stmdb		r0!, {X12,X13,X14,X15}
 
 	// key: x4-x11
@@ -427,26 +428,47 @@ ENTRY(chacha20_arm)
 	__strd		X0, X1, sp, 16
 	__strd		X2, X3, sp, 24
 
-	_chacha		20
+	beq		.Lchacha12		// nrounds == 12?
+	blt		.Lchacha8		// nrounds < 12?
 
+	_chacha		20
+	b		.Lchacha_done
+.Lchacha12:
+	_chacha		12
+	b		.Lchacha_done
+.Lchacha8:
+	_chacha		8
+
+.Lchacha_done:
 	add		sp, #76
 	pop		{r4-r11, pc}
-ENDPROC(chacha20_arm)
+ENDPROC(chacha_arm)
 
 /*
- * void hchacha20_arm(const u32 state[16], u32 out[8]);
+ * void hchacha_arm(const u32 state[16], u32 out[8], int nrounds);
  */
-ENTRY(hchacha20_arm)
+ENTRY(hchacha_arm)
 	push		{r1,r4-r11,lr}
 
 	mov		r14, r0
+	  cmp		r2, #12			// nrounds == 12?
 	ldmia		r14!, {r0-r11}		// load x0-x11
 	push		{r10-r11}		// store x10-x11 to stack
 	ldm		r14, {r10-r12,r14}	// load x12-x15
 	sub		sp, #8
 
-	_chacha_permute	20
+	beq		.Lhchacha12		// nrounds == 12?
+	blt		.Lhchacha8		// nrounds < 12?
 
+	_chacha_permute	20
+	b		.Lhchacha_done
+.Lhchacha12:
+	_chacha_permute	12
+	b		.Lhchacha_done
+.Lhchacha8:
+	_chacha_permute	8
+
+.Lhchacha_done:
 	// Skip over (unused0-unused1, x10-x11)
 	add		sp, #16
 
@@ -461,7 +483,7 @@ ENTRY(hchacha20_arm)
 	stm		r4, {X0,X1,X2,X3,X12,X13,X14,X15}
 
 	pop		{r4-r11,pc}
-ENDPROC(hchacha20_arm)
+ENDPROC(hchacha_arm)
 
 #ifdef CONFIG_KERNEL_MODE_NEON
 /*
@@ -504,12 +526,12 @@ ENDPROC(hchacha20_arm)
 	mov	r10,r10,ror#8
 	mov	r14,r14,ror#8
 	str	r11, [sp,#4*(16+15)]
-	mov	r11,#10
+	ldr	r11, [sp,#4*45]		@ nrounds
 	b	.Loop
 
 .align	4
 .Loop:
-	subs	r11,r11,#1
+	subs	r11,r11,#2
 	add	r0,r0,r4,ror#13
 	add	r1,r1,r5,ror#13
 	eor	r12,r0,r12,ror#24
@@ -1189,8 +1211,12 @@ ENDPROC(hchacha20_arm)
 .arch	armv7-a
 .fpu	neon
 
+/*
+ * void chacha_neon(u8 *out, const u8 *in, size_t len, const u32 key[8],
+ *		    const u32 counter[4], int nrounds);
+ */
 .align	5
-ENTRY(chacha20_neon)
+ENTRY(chacha_neon)
 	ldr		r12,[sp,#0]		@ pull pointer to counter and nonce
 	stmdb		sp!,{r0-r2,r4-r11,lr}
 	cmp		r2,#0			@ len==0?
@@ -1199,7 +1225,7 @@ ENTRY(chacha20_neon)
 #endif
 	addeq		sp,sp,#4*3
 	beq		.Lno_data_neon
-.Lchacha20_neon_begin:
+
 	adr		r14,.Lsigma2
 	vstmdb		sp!,{d8-d15}		@ ABI spec says so
 	stmdb		sp!,{r0-r3}
@@ -1263,12 +1289,12 @@ ENTRY(chacha20_neon)
 	mov		r10,r10,ror#8
 	mov		r14,r14,ror#8
 	str		r11, [sp,#4*(16+15)]
-	mov		r11,#10
+	ldr		r11, [sp,#4*65]		@ nrounds
 	b		.Loop_neon
 
 .align	4
 .Loop_neon:
-	subs		r11,r11,#1
+	subs		r11,r11,#2
 	vadd.i32	q0,q0,q1
 	add	r0,r0,r4,ror#13
 	vadd.i32	q4,q4,q5
@@ -1686,7 +1712,7 @@ ENTRY(chacha20_neon)
 	vst1.32		{q0-q1},[r11]!		@ copy key
 	add		sp,sp,#4*(20)			@ switch frame
 	vst1.32		{q2-q3},[r11]
-	mov		r11,#10
+	ldr		r11, [sp,#4*45]		@ nrounds
 	b		.Loop				@ go integer-only
 
 .align	4
@@ -1855,5 +1881,5 @@ ENTRY(chacha20_neon)
 	add		sp,sp,#4*(16+3)
 .Lno_data_neon:
 	ldmia		sp!,{r4-r11,pc}
-ENDPROC(chacha20_neon)
+ENDPROC(chacha_neon)
 #endif
