@@ -44,4 +44,6 @@ void chacha_perm_neon(u32 state[16], int nrounds);
 #ifdef __arm__
 #  define HAVE_CHACHA_SIMD 1
 #  define HAVE_HCHACHA_SIMD 1
+#elif defined(__aarch64__)
+#  define HAVE_CHACHA_SIMD 1
 #endif

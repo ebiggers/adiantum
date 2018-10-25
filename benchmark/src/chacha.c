@@ -228,7 +228,31 @@ static void hchacha_simd(const u32 state[16], u32 out[8], int nrounds)
 	/* faster than chacha_perm_neon() on most (or all?) CPUs */
 	hchacha_arm(state, out, nrounds);
 }
-#endif /* __arm__ */
+#elif defined(__aarch64__)
+
+/* CHACHA_ASM_IMPL_SCALAR */
+void chacha20_arm(u8 *out, const u8 *in, size_t len, const u32 key[8],
+		  const u32 iv[4]);
+
+/* CHACHA_ASM_IMPL_LINUX_NEON */
+void chacha20_neon(u8 *out, const u8 *in, size_t len, const u32 key[8],
+		   const u32 iv[4]);
+
+static void chacha_simd(const struct chacha_ctx *ctx, u8 *dst, const u8 *src,
+			unsigned int bytes, const u8 *iv)
+{
+	u32 _iv[4];
+
+	memcpy(_iv, iv, 16);
+
+	if (ctx->nrounds != 20)
+		chacha_generic(ctx, dst, src, bytes, iv);
+	else if (CHACHA_ASM_IMPL == CHACHA_ASM_IMPL_SCALAR)
+		chacha20_arm(dst, src, bytes, ctx->key, _iv);
+	else
+		chacha20_neon(dst, src, bytes, ctx->key, _iv);
+}
+#endif /* __aarch64__ */
 
 /* ChaCha stream cipher */
 void chacha(const struct chacha_ctx *ctx, u8 *dst, const u8 *src,

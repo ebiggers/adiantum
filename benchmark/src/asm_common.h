@@ -24,10 +24,13 @@
 #define ENDPROC(name)
 #endif
 
+#if defined(__arch__) || defined(__aarch64__)
+#  define CONFIG_KERNEL_MODE_NEON	1
+#endif
+
 #ifdef __arm__
 #  define MAX_L1_CACHE_SHIFT	7
 #  define __LINUX_ARM_ARCH__		7
-#  define CONFIG_KERNEL_MODE_NEON	1
 #  define reteq				bxeq
 #  define adrl				adr
 #endif
